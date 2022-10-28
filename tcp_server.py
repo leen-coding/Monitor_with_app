@@ -52,7 +52,7 @@ if __name__ == '__main__':
         new_client, ip_port = tcp_server_socket.accept()
 
 
-        if ip_port[0] == '192.168.0.29':  # cam的ip地址
+        if ip_port[0] == '192.168.0.53':  # cam的ip地址
             # 当客户端与服务端建立连接成功时，创建子线程，让子线程专门负责接收客户端的消息
             cam_thread = threading.Thread(target=camClient, args=(ip_port, new_client))
             # 设置守护主线程，主线程退出子线程销毁

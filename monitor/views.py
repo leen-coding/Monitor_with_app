@@ -1,46 +1,53 @@
-from django.shortcuts import render
 
-# Create your views here.
-from socket import *
+import pymongo
 from django.http import StreamingHttpResponse
 from django.shortcuts import render
-import struct
 
-host = "127.0.0.1"  # 服务器本地ip
-port = 5005
-clientSocket = socket(AF_INET, SOCK_STREAM)
 
-clientSocket.connect((host, port))
-global last_frame
+mongo_client = pymongo.MongoClient("mongodb://localhost:27017/")
+print(mongo_client.server_info())  # 判断是否连接成功
+mongo_db = mongo_client['CAM_db']
+
+mongo_collection = mongo_db['CAM_collection']
+# Create your views here.
+# from socket import *
+
+
+
+# import struct
+#
+# host = "127.0.0.1"  # 服务器本地ip
+# port = 5005
+# clientSocket = socket(AF_INET, SOCK_STREAM)
+#
+# clientSocket.connect((host, port))
+# global last_frame
 
 
 def getmonitor(request):
-    return StreamingHttpResponse(gen(clientSocket),
+    return StreamingHttpResponse(gen(),
                                  content_type='multipart/x-mixed-replace; boundary=frame')
 
 
-def gen(clientSocket):
+def gen():
     while True:
-
-        global last_frame
         try:
-            recv_msg_len = clientSocket.recv(4)
-            recv_len = struct.unpack("i", recv_msg_len)[0]
-            buf = b""
-            while recv_len > 0:
-                temp_buf = clientSocket.recv(recv_len)
-                recv_len -= len(temp_buf)
-                buf += temp_buf
-            # recv_len = struct.unpack("i", recv_msg_len)[0]
-            # frame = clientSocket.recv(recv_len)
-            frame = buf
-            last_frame = frame
-            clientSocket.send("get msg".encode())
+            last_frame = [i for i in mongo_collection.find({'machine_id': 'CAM'}).sort('_id', -1).limit(1)][0]['data']
+            last_id = [i for i in mongo_collection.find({'machine_id': 'CAM'}).sort('_id', -1).limit(1)][0]["_id"]
+            try:
+                myquery = {
+                    "machine_id": "CAM",
+                    "_id": {'$lt': last_id}
+                }
+                x = mongo_collection.delete_many(myquery)
+            except:
+                pass
+            yield (b'--frame\r\n'
+                   b'Content-Type: image/jpeg\r\n\r\n' + last_frame + b'\r\n\r\n')
         except:
-            frame = last_frame  # 防止没有frame输出
-        # print(len(frame))
-        yield (b'--frame\r\n'
-               b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n\r\n')
+            continue
+
+
 
 
 def gethtml(request):
